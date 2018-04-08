@@ -27,6 +27,7 @@ namespace RPCServer
       if(ptrConnection)
       {
           //close the connection with remote server using *ptrConnection
+          delete ptrConnection;
       }
     };
     

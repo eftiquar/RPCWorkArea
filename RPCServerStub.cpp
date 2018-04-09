@@ -47,6 +47,7 @@ namespace RPCServer
         friend class RPCServerStub;
         friend IRPCServiceBase* QueryService(const RPCServer::RPC_SERVICE_GUID svcGuid);
     public:
+        void Release() override;
         void LoadModel() override;
         void PerformInference() override;
         void UnloadModel() override;
@@ -55,7 +56,7 @@ namespace RPCServer
         
         
     protected:
-        void Release() override;
+        
         RPCModelServerSvc(HANDLE hServerConnection, HANDLE hSvcConnection);
         virtual ~RPCModelServerSvc();
     private:
@@ -98,6 +99,9 @@ namespace RPCServer
         friend IRPCServer* CreateServer(const wchar_t * const connectString );
     public:
         shared_ptr<IRPCServiceBase> QueryService(const RPC_SERVICE_GUID svcGuid) override;
+        RPCServerStub(const RPCServerStub&) = delete ;
+        RPCServerStub operator=(const RPCServerStub&) = delete ;
+        
     protected:
         RPCServerStub(const wchar_t * const connectString);
         ~RPCServerStub();
@@ -114,7 +118,7 @@ namespace RPCServer
     }
     RPCServerStub::RPCServerStub(const wchar_t * const connectString):m_ConnectString(connectString),m_spConnection(new HANDLE(nullptr),ServerConnectionDeleter)
     {
-        //m_hConnection = use grpc to connect to remote server m_hConnection identifies session with server
+        //m_hConnection = use grpc to connect to remote server ,m_hConnection identifies session with server
         std::cout << "Constructing RPCServerStub" << std::endl;
     }
     shared_ptr<IRPCServiceBase> RPCServerStub::QueryService(const RPC_SERVICE_GUID svcGuid)
@@ -130,7 +134,9 @@ namespace RPCServer
         
         //assert(m_hConnection);
         HANDLE hSvc = GetService(m_spConnection.get());
-      
+        
+         // dont want to call expensive functions with lock held. so calling RPCModelServerSvc outside lock
+        
         shared_ptr<IRPCServiceBase> result = std::shared_ptr<IRPCServiceBase>( new RPCModelServerSvc( m_spConnection.get(),hSvc),
                                                                                 [](IRPCServiceBase* pBaseSvc)
                                                                                 {
@@ -140,6 +146,13 @@ namespace RPCServer
                                                                                 });
         {
             std::lock_guard<std::mutex> mapLock(m_mapMutex);
+            //this is double checked locking,
+            auto foundIt = m_serviceMap.find(svcGuid);
+            if(foundIt != m_serviceMap.end())
+            {
+                
+                return foundIt->second;
+            }
             m_serviceMap[svcGuid] = result;
         }
         return result;

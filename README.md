@@ -17,4 +17,6 @@
 
 9. Each service is identified via a GUID and its contract is exposed as an interface. 
 
-10. PIMPL idiom can be used to further isolate the clients from inerface implementation.   
+10. PIMPL idiom can be used to further isolate the clients from inerface implementation. 
+
+11. During my previous job, I had to reverse engineer protobuf, which is used by gRPC under the hood. It is a simple structure, a prefix sequence of bytes specifies what type of data follows, the prefix also includes length of the following data. Each data type has unique identifier code. A string is merely length prefixed reprsentation. Maps, lists, and arrays can be represented recursivey. 
